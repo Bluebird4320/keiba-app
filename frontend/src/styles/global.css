@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Playfair+Display:wght@700;900&display=swap');
+
+:root {
+  --bg-primary: #0a0f0a;
+  --bg-secondary: #111811;
+  --bg-card: #141f14;
+  --bg-card-hover: #1a281a;
+  --border: #1e3a1e;
+  --border-light: #2a4a2a;
+  --green-primary: #1a7a1a;
+  --green-bright: #22c55e;
+  --green-glow: #16a34a;
+  --gold: #d4af37;
+  --gold-light: #f0d060;
+  --gold-dim: #8a7020;
+  --red-accent: #dc2626;
+  --blue-accent: #3b82f6;
+  --text-primary: #f0f4f0;
+  --text-secondary: #9ab89a;
+  --text-muted: #556655;
+  --rank-1: #d4af37;
+  --rank-2: #c0c0c0;
+  --rank-3: #cd7f32;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(26, 122, 26, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(212, 175, 55, 0.05) 0%, transparent 60%);
+}
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--green-primary); }
+
+/* ユーティリティ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.badge-gold { background: rgba(212,175,55,0.15); color: var(--gold); border: 1px solid rgba(212,175,55,0.3); }
+.badge-green { background: rgba(34,197,94,0.1); color: var(--green-bright); border: 1px solid rgba(34,197,94,0.25); }
+.badge-red { background: rgba(220,38,38,0.1); color: #f87171; border: 1px solid rgba(220,38,38,0.25); }
+.badge-blue { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.25); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--green-primary), var(--green-glow));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(22,163,74,0.4); }
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+  color: #0a0f0a;
+  box-shadow: 0 4px 12px rgba(212,175,55,0.25);
+}
+.btn-gold:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(212,175,55,0.35); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+.btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-title::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 22px;
+  background: linear-gradient(to bottom, var(--gold), var(--gold-dim));
+  border-radius: 2px;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+/* アニメーション */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes pulse-gold {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-in { animation: fadeInUp 0.4s ease both; }
+.animate-delay-1 { animation-delay: 0.1s; }
+.animate-delay-2 { animation-delay: 0.2s; }
+.animate-delay-3 { animation-delay: 0.3s; }
+
+/* ローディングスケルトン */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--border) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
