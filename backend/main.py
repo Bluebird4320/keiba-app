@@ -236,3 +236,97 @@ def simulate_bet(req: BetSimulationRequest):
         total_bets=len(combo_list),
         total_amount=len(combo_list) * amount,
     )
+
+
+# =============================================
+# DB連携エンドポイント
+# =============================================
+
+from db.database import get_connection, get_stats, init_db as _init_db
+
+@app.get("/api/db/stats")
+def db_stats():
+    """DB統計情報"""
+    try:
+        return get_stats()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/db/races")
+def db_races(
+    year: int = 2026,
+    grade: Optional[str] = None,
+    venue: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """DBから重賞レース一覧を取得"""
+    conn = get_connection()
+    query = "SELECT * FROM races WHERE year = ?"
+    params = [year]
+    if grade:
+        query += " AND grade = ?"
+        params.append(grade)
+    if venue:
+        query += " AND venue = ?"
+        params.append(venue)
+    query += " ORDER BY id DESC LIMIT ? OFFSET ?"
+    params += [limit, offset]
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return {"races": [dict(r) for r in rows], "total": len(rows)}
+
+
+@app.get("/api/db/race/{race_id}/results")
+def db_race_results(race_id: int):
+    """DBからレース着順を取得"""
+    conn = get_connection()
+    race = conn.execute("SELECT * FROM races WHERE id = ?", (race_id,)).fetchone()
+    if not race:
+        conn.close()
+        raise HTTPException(status_code=404, detail="レースが見つかりません")
+
+    results = conn.execute(
+        "SELECT * FROM race_results WHERE race_id = ? ORDER BY rank",
+        (race_id,)
+    ).fetchall()
+    conn.close()
+    return {
+        "race": dict(race),
+        "results": [dict(r) for r in results],
+    }
+
+
+@app.get("/api/db/horse/{name}/history")
+def db_horse_history(name: str):
+    """馬名で過去成績を検索"""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT rr.*, r.race_date, r.race_name, r.venue, r.grade, r.surface, r.distance
+        FROM race_results rr
+        JOIN races r ON rr.race_id = r.id
+        WHERE rr.horse_name = ?
+        ORDER BY r.id DESC
+        LIMIT 20
+    """, (name,)).fetchall()
+    conn.close()
+    return {"horse_name": name, "history": [dict(r) for r in rows]}
+
+
+@app.get("/api/db/jockey/{name}/results")
+def db_jockey_results(name: str):
+    """騎手の最近の成績を取得"""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT rr.rank, rr.horse_name, rr.finish_time, rr.win_odds, rr.popular,
+               r.race_date, r.race_name, r.venue, r.grade
+        FROM race_results rr
+        JOIN races r ON rr.race_id = r.id
+        WHERE rr.jockey_name = ?
+        ORDER BY r.id DESC
+        LIMIT 30
+    """, (name,)).fetchall()
+    conn.close()
+    return {"jockey_name": name, "results": [dict(r) for r in rows]}
