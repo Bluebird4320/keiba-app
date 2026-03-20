@@ -233,6 +233,15 @@ def scrape_race_horses(race_id: str) -> list:
     num         = len(stats.get("bracket_nos", [])) or len(horse_names)
     horse_names = horse_names[:num]
     horse_ids   = horse_ids[:num]
+    jockey_names_trimmed = jockey_names[:num]
+    jockey_ids_trimmed   = jockey_ids[:num]
+
+    # megamoriTableは右→左（高馬番→低馬番）でreversed済み
+    # 馬名・騎手リスト（aタグ順）は左→右（低馬番→高馬番）なので逆順に揃える
+    horse_names          = list(reversed(horse_names))
+    horse_ids            = list(reversed(horse_ids))
+    jockey_names_trimmed = list(reversed(jockey_names_trimmed))
+    jockey_ids_trimmed   = list(reversed(jockey_ids_trimmed))
 
     horses = []
     for i in range(num):
@@ -242,7 +251,7 @@ def scrape_race_horses(race_id: str) -> list:
         odds     = stats["odds"][i]        if i < len(stats["odds"])        else ""
         popular  = stats["populars"][i]    if i < len(stats.get("populars",[])) else ""
         weight   = stats["weights"][i]     if i < len(stats["weights"])     else "55.0"
-        jockey   = stats["jockeys"][i]     if i < len(stats["jockeys"])     else (jockey_names[i] if i < len(jockey_names) else "")
+        jockey   = stats["jockeys"][i]     if i < len(stats["jockeys"])     else (jockey_names_trimmed[i] if i < len(jockey_names_trimmed) else "")
         trainer_raw = stats["trainers"][i] if i < len(stats["trainers"])    else ""
         trainer  = re.sub(r"^[美栗]\s*", "", trainer_raw)
         name     = horse_names[i] if i < len(horse_names) else f"馬{i+1}"
