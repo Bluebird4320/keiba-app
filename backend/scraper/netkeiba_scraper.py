@@ -163,7 +163,7 @@ def _parse_keibalab_race_list(date_str: str) -> list:
 def _parse_mega_table(mega_table, num_horses: int) -> dict:
     """
     megamoriTableから全出走馬情報を抽出
-    データは右→左（高馬番→低馬番）順なのでreversedして返す
+    データは右→左（高馬番→低馬番）順で格納
     """
     result = {
         "bracket_nos": [], "horse_nos": [], "sex_ages": [],
@@ -187,7 +187,7 @@ def _parse_mega_table(mega_table, num_horses: int) -> dict:
     # 枠番から馬数確定
     br_cells = [td.get_text(strip=True) for td in rows[bracket_row_idx].select("td")
                 if re.match(r"^\d+$", td.get_text(strip=True))]
-    result["bracket_nos"] = list(reversed(br_cells))
+    result["bracket_nos"] = br_cells  # 左→右順（高馬番→低馬番）
     num = len(result["bracket_nos"])
 
     TH_MAP = {
@@ -204,11 +204,11 @@ def _parse_mega_table(mega_table, num_horses: int) -> dict:
         if th_text in TH_MAP:
             key  = TH_MAP[th_text]
             vals = [td.get_text(strip=True) for td in row.select("td") if td.get_text(strip=True)]
-            result[key] = list(reversed([v for v in vals if v][:num]))
+            result[key] = [v for v in vals if v][:num]  # 高馬番→低馬番順
 
         elif "単勝" in th_text:
             vals = [td.get_text(strip=True) for td in row.select("td") if td.get_text(strip=True)]
-            vals = list(reversed([v for v in vals if v][:num]))
+            vals = [v for v in vals if v][:num]  # 高馬番→低馬番順
             for v in vals:
                 m = re.match(r"([\d.]+)\((\d+)\)", v)
                 result["odds"].append(m.group(1) if m else v)
@@ -308,10 +308,8 @@ def _parse_mega_table(mega_table, num_horses: int) -> dict:
 
             j += 1
 
-        # horse_dataはmegamoriTable同様に右→左（高馬番→低馬番）順
-        # reversedして馬インデックスに対応
-        horse_data_rev = list(reversed(horse_data))
-        for idx, data in enumerate(horse_data_rev):
+        # horse_dataは高馬番→低馬番順（megamoriTableと同順）
+        for idx, data in enumerate(horse_data):
             if idx < num:
                 result["past_races"][idx].append(data)
 
@@ -358,7 +356,7 @@ def scrape_race_horses(race_id: str) -> list:
 
     num = len(stats.get("bracket_nos", [])) or len(horse_names)
 
-    # aタグリスト（低→高馬番）とmegaTable（高→低→reversedで低→高）を対応させる
+    # 馬名・枠番・馬番・騎手は全て高馬番→低馬番順で統一
     horse_names = horse_names[:num]
     horse_ids   = horse_ids[:num]
     jockey_names_t = jockey_names[:num]
@@ -415,7 +413,9 @@ def scrape_race_horses(race_id: str) -> list:
             "jockey_info":   {},
         })
 
-    logger.info(f"  {race_id}: {len(horses)}頭取得（過去走{len(stats.get('past_races',{}).get(0,[]))}走分）")
+    # horse_noの昇順（1番→16番）にソート
+    horses.sort(key=lambda h: int(h["horse_no"]) if h["horse_no"].isdigit() else 99)
+    logger.info(f"  {race_id}: {len(horses)}頭取得（過去走{len(horses[0]['past_races']) if horses else 0}走分）")
     return horses
 
 
