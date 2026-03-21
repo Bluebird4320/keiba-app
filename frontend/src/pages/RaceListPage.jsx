@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { Calendar, ChevronRight, MapPin, Clock, Loader2 } from 'lucide-react'
 import { fetchRaces } from '../services/api'
 
-const DATE_LABELS = { today: '今日', tomorrow: '明日' }
+const DATE_LABELS = ['昨日', '今日', '明日']
 
 export default function RaceListPage() {
-  const [data, setData] = useState({})
+  const [venuesByDate, setVenuesByDate] = useState({})  // { date: venues } キャッシュ
+  const [dates, setDates] = useState([])
   const [loading, setLoading] = useState(true)
+  const [tabLoading, setTabLoading] = useState(false)
   const [error, setError] = useState('')
   const [activeDate, setActiveDate] = useState(null)
   const navigate = useNavigate()
@@ -15,16 +17,31 @@ export default function RaceListPage() {
   useEffect(() => {
     fetchRaces()
       .then(res => {
-        setData(res.dates || {})
-        const keys = Object.keys(res.dates || {})
+        const allData = res.dates || {}
+        const dateKeys = Object.keys(allData)
+        setDates(dateKeys)
+        setVenuesByDate(allData)
         // 今日（index 1）をデフォルトに
-        if (keys.length > 0) setActiveDate(keys[1] || keys[0])
+        setActiveDate(dateKeys[1] || dateKeys[0])
       })
       .catch(() => setError('レース情報の取得に失敗しました。バックエンドが起動しているか確認してください。'))
       .finally(() => setLoading(false))
   }, [])
 
-  const dates = Object.keys(data)
+  const handleDateChange = (d) => {
+    if (d === activeDate) return
+    setActiveDate(d)
+    if (venuesByDate[d] !== undefined) return  // キャッシュあり → 即切替
+    // 未キャッシュ → 個別取得
+    setTabLoading(true)
+    fetchRaces(d)
+      .then(res => {
+        const venues = Object.values(res.dates || {})[0] || {}
+        setVenuesByDate(prev => ({ ...prev, [d]: venues }))
+      })
+      .catch(() => {})
+      .finally(() => setTabLoading(false))
+  }
 
   const formatDate = (dateStr) => {
     if (!dateStr || dateStr.length !== 8) return dateStr
@@ -71,7 +88,7 @@ export default function RaceListPage() {
           {dates.map((d, i) => (
             <button
               key={d}
-              onClick={() => setActiveDate(d)}
+              onClick={() => handleDateChange(d)}
               style={{
                 padding: '8px 24px', borderRadius: 10, border: '1px solid',
                 borderColor: activeDate === d ? 'var(--gold)' : 'var(--border)',
@@ -80,16 +97,21 @@ export default function RaceListPage() {
                 fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s',
               }}
             >
-              {['昨日', '今日', '明日'][i] ?? formatDate(d)} {formatDate(d)}
+              {DATE_LABELS[i] ?? formatDate(d)} {formatDate(d)}
             </button>
           ))}
         </div>
       )}
 
       {/* 開催場別レース */}
-      {activeDate && data[activeDate] && Object.keys(data[activeDate]).length > 0 ? (
+      {tabLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200, gap: 12 }}>
+          <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--gold)' }} />
+          <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>取得中...</span>
+        </div>
+      ) : activeDate && venuesByDate[activeDate] && Object.keys(venuesByDate[activeDate]).length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
-          {Object.entries(data[activeDate]).map(([venueName, races]) => (
+          {Object.entries(venuesByDate[activeDate]).map(([venueName, races]) => (
             <div key={venueName} className="card animate-in" style={{ padding: 0, overflow: 'hidden' }}>
               {/* 開催場ヘッダー */}
               {(() => {

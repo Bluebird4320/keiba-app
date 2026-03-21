@@ -407,6 +407,46 @@ def scrape_race_horses(race_id: str) -> tuple:
     mega  = soup.select_one("table.megamoriTable")
     stats = _parse_mega_table(mega, len(horse_names)) if mega else {}
 
+    # 終了済みレース: megamoriTable がなく resulttable がある場合はそちらから構築
+    if not mega:
+        result_table = soup.select_one("table.resulttable")
+        if result_table:
+            fallback_horses = []
+            for row in result_table.select("tr")[1:]:
+                tds = row.select("td")
+                if len(tds) < 9:
+                    continue
+                h_link = tds[3].find("a", href=re.compile(r"/db/horse/"))
+                h_id_m = re.search(r"/db/horse/(\d+)/", h_link.get("href", "")) if h_link else None
+                j_link = tds[6].find("a", href=re.compile(r"/db/jockey/"))
+                j_id_m = re.search(r"/db/jockey/(\w+)/", j_link.get("href", "")) if j_link else None
+                trainer_raw = tds[13].get_text(strip=True) if len(tds) > 13 else ""
+                fallback_horses.append({
+                    "horse_no":      tds[2].get_text(strip=True),
+                    "bracket_no":    tds[1].get_text(strip=True),
+                    "horse_id":      h_id_m.group(1) if h_id_m else "",
+                    "horse_name":    tds[3].get_text(strip=True),
+                    "age_sex":       tds[4].get_text(strip=True),
+                    "horse_weight":  tds[14].get_text(strip=True) if len(tds) > 14 else "",
+                    "burden_weight": tds[5].get_text(strip=True),
+                    "jockey_id":     j_id_m.group(1) if j_id_m else "",
+                    "jockey_name":   tds[6].get_text(strip=True),
+                    "trainer_name":  re.sub(r"^\[.\]", "", trainer_raw),
+                    "odds":          tds[8].get_text(strip=True),
+                    "popular":       tds[7].get_text(strip=True),
+                    "past_races":    [],
+                    "jockey_info":   {},
+                })
+            fallback_horses.sort(key=lambda h: int(h["horse_no"]) if h["horse_no"].isdigit() else 99)
+            surface_page = ""
+            for line in [l.strip() for l in soup.get_text(separator="\n").split("\n") if l.strip()]:
+                if not surface_page:
+                    sm = re.search(r"([芝ダ障])\d{3,4}m", line)
+                    if sm:
+                        surface_page = {"芝": "芝", "ダ": "ダート", "障": "障害"}.get(sm.group(1), "")
+            logger.info(f"  {race_id}: resulttable fallback, {len(fallback_horses)}頭取得")
+            return fallback_horses, surface_page, ""
+
     num = len(stats.get("bracket_nos", [])) or len(horse_names)
 
     # 馬名・枠番・馬番・騎手は全て高馬番→低馬番順で統一
@@ -415,18 +455,27 @@ def scrape_race_horses(race_id: str) -> tuple:
     jockey_names_t = jockey_names[:num]
     jockey_ids_t   = jockey_ids[:num]
 
+    br_nos  = stats.get("bracket_nos", [])
+    hn_nos  = stats.get("horse_nos", [])
+    sa_list = stats.get("sex_ages", [])
+    od_list = stats.get("odds", [])
+    po_list = stats.get("populars", [])
+    wt_list = stats.get("weights", [])
+    jo_list = stats.get("jockeys", [])
+    tr_list = stats.get("trainers", [])
+
     horses = []
     for i in range(num):
-        bracket      = stats["bracket_nos"][i]  if i < len(stats["bracket_nos"])  else str(((i)//2)+1)
-        horse_no     = stats["horse_nos"][i]     if i < len(stats["horse_nos"])     else str(i+1)
-        sex_age      = stats["sex_ages"][i]      if i < len(stats["sex_ages"])      else ""
-        odds         = stats["odds"][i]          if i < len(stats["odds"])          else ""
-        popular      = stats["populars"][i]      if i < len(stats.get("populars",[])) else ""
-        weight       = stats["weights"][i]       if i < len(stats["weights"])       else "55.0"
-        jockey       = stats["jockeys"][i]       if i < len(stats["jockeys"])       else (jockey_names_t[i] if i < len(jockey_names_t) else "")
-        trainer_raw  = stats["trainers"][i]      if i < len(stats["trainers"])      else ""
-        trainer      = re.sub(r"^[美栗]\s*", "", trainer_raw)
-        name         = horse_names[i]            if i < len(horse_names)            else f"馬{i+1}"
+        bracket     = br_nos[i]  if i < len(br_nos)  else str(((i)//2)+1)
+        horse_no    = hn_nos[i]  if i < len(hn_nos)  else str(i+1)
+        sex_age     = sa_list[i] if i < len(sa_list) else ""
+        odds        = od_list[i] if i < len(od_list) else ""
+        popular     = po_list[i] if i < len(po_list) else ""
+        weight      = wt_list[i] if i < len(wt_list) else "55.0"
+        jockey      = jo_list[i] if i < len(jo_list) else (jockey_names_t[i] if i < len(jockey_names_t) else "")
+        trainer_raw = tr_list[i] if i < len(tr_list) else ""
+        trainer     = re.sub(r"^[美栗]\s*", "", trainer_raw)
+        name        = horse_names[i] if i < len(horse_names) else f"馬{i+1}"
 
         # 騎手ID
         jockey_id = ""
