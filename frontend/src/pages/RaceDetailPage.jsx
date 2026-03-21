@@ -6,6 +6,7 @@ import HorseCard from '../components/HorseCard'
 import BetSimulator from '../components/BetSimulator'
 import AIPrediction from '../components/AIPrediction'
 import OddsPanel from '../components/OddsPanel'
+import RaceResults from '../components/RaceResults'
 
 export default function RaceDetailPage() {
   const { raceId } = useParams()
@@ -13,7 +14,11 @@ export default function RaceDetailPage() {
   const [race, setRace] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState('horses') // horses | bet | odds | ai
+  const [activeTab, setActiveTab] = useState(() => {
+    const raceDate = raceId?.slice(0, 8) || ''
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    return raceDate < today ? 'results' : 'horses'
+  })
 
   useEffect(() => {
     fetchRaceDetail(raceId)
@@ -37,10 +42,11 @@ export default function RaceDetailPage() {
   )
 
   const tabs = [
-    { key: 'horses', label: '出走馬', icon: Users },
-    { key: 'odds',   label: 'オッズ', icon: Trophy },
-    { key: 'bet',    label: '買い目', icon: Trophy },
-    { key: 'ai',     label: 'AI予想', icon: Trophy },
+    { key: 'results', label: '結果',   icon: Trophy },
+    { key: 'horses',  label: '出走馬', icon: Users },
+    { key: 'odds',    label: 'オッズ', icon: Trophy },
+    { key: 'bet',     label: '買い目', icon: Trophy },
+    { key: 'ai',      label: 'AI予想', icon: Trophy },
   ]
 
   return (
@@ -65,6 +71,12 @@ export default function RaceDetailPage() {
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
                 {race.race_conditions}
               </div>
+              {(race.surface || race.track_condition) && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+                  {race.surface && <span className="badge badge-green" style={{ fontSize: 11 }}>{race.surface}</span>}
+                  {race.track_condition && <span className="badge badge-green" style={{ fontSize: 11 }}>馬場:{race.track_condition}</span>}
+                </div>
+              )}
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 {race.race_grade}
               </div>
@@ -101,6 +113,10 @@ export default function RaceDetailPage() {
       {/* タブコンテンツ */}
       {race && (
         <>
+          {activeTab === 'results' && (
+            <RaceResults raceId={raceId} />
+          )}
+
           {activeTab === 'horses' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {race.horses?.length > 0 ? (

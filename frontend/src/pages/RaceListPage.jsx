@@ -17,7 +17,8 @@ export default function RaceListPage() {
       .then(res => {
         setData(res.dates || {})
         const keys = Object.keys(res.dates || {})
-        if (keys.length > 0) setActiveDate(keys[0])
+        // 今日（index 1）をデフォルトに
+        if (keys.length > 0) setActiveDate(keys[1] || keys[0])
       })
       .catch(() => setError('レース情報の取得に失敗しました。バックエンドが起動しているか確認してください。'))
       .finally(() => setLoading(false))
@@ -61,7 +62,7 @@ export default function RaceListPage() {
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--gold)', marginBottom: 6 }}>
           開催レース
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>今日・明日のJRA全開催レース一覧</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>昨日・今日・明日のJRA全開催レース一覧</p>
       </div>
 
       {/* 日付タブ */}
@@ -79,7 +80,7 @@ export default function RaceListPage() {
                 fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.18s',
               }}
             >
-              {i === 0 ? '今日' : '明日'} {formatDate(d)}
+              {['昨日', '今日', '明日'][i] ?? formatDate(d)} {formatDate(d)}
             </button>
           ))}
         </div>
@@ -91,16 +92,26 @@ export default function RaceListPage() {
           {Object.entries(data[activeDate]).map(([venueName, races]) => (
             <div key={venueName} className="card animate-in" style={{ padding: 0, overflow: 'hidden' }}>
               {/* 開催場ヘッダー */}
-              <div style={{
-                padding: '12px 18px',
-                background: 'linear-gradient(135deg, rgba(26,122,26,0.3), rgba(34,197,94,0.1))',
-                borderBottom: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                <MapPin size={14} color="var(--green-bright)" />
-                <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--green-bright)' }}>{venueName}</span>
-                <span className="badge badge-green" style={{ marginLeft: 'auto' }}>{races.length}R</span>
-              </div>
+              {(() => {
+                const turfCond = races.find(r => r.surface === '芝')?.track_condition || ''
+                const dirtCond = races.find(r => r.surface === 'ダート')?.track_condition || ''
+                return (
+                  <div style={{
+                    padding: '12px 18px',
+                    background: 'linear-gradient(135deg, rgba(26,122,26,0.3), rgba(34,197,94,0.1))',
+                    borderBottom: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <MapPin size={14} color="var(--green-bright)" />
+                    <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--green-bright)' }}>{venueName}</span>
+                    <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', alignItems: 'center' }}>
+                      {turfCond && <span className="badge badge-green" style={{ fontSize: 10 }}>芝:{turfCond}</span>}
+                      {dirtCond && <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(180,130,50,0.2)', color: '#c8a060', border: '1px solid rgba(180,130,50,0.3)' }}>ダ:{dirtCond}</span>}
+                      <span className="badge badge-green">{races.length}R</span>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* レース一覧 */}
               <div style={{ padding: '8px 0' }}>

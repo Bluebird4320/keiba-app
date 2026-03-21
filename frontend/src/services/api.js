@@ -17,6 +17,9 @@ export const fetchOdds = (raceId) =>
 export const fetchPrediction = (raceId) =>
   api.get(`/api/race/${raceId}/predict`).then(r => r.data)
 
+export const fetchRaceResults = (raceId) =>
+  api.get(`/api/race/${raceId}/results`).then(r => r.data)
+
 export const simulateBet = (payload) =>
   api.post('/api/simulate', payload).then(r => r.data)
 

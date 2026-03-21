@@ -107,7 +107,7 @@ export default function HorseCard({ horse, highlight }) {
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                       <RankBadge rank={r.rank} />
                       <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {r.race_name}
+                        {r.race_name} {r.surface}{r.distance} {r.track_condition} {r.jockey}
                       </span>
                       <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{r.date}</span>
                     </div>

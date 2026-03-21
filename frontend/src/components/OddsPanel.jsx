@@ -3,14 +3,17 @@ import { RefreshCw, TrendingUp } from 'lucide-react'
 import { fetchOdds } from '../services/api'
 
 const ODDS_LABELS = {
-  win:      '単勝',
-  place:    '複勝',
-  quinella: '馬連',
-  exacta:   '馬単',
-  wide:     'ワイド',
-  trio:     '三連複',
-  trifecta: '三連単',
+  win:              '単勝',
+  place:            '複勝',
+  bracket_quinella: '枠連',
+  quinella:         '馬連',
+  exacta:           '馬単',
+  wide:             'ワイド',
+  trio:             '三連複',
+  trifecta:         '三連単',
 }
+
+const JS_ONLY_TABS = ['quinella', 'exacta', 'wide', 'trio', 'trifecta']
 
 export default function OddsPanel({ raceId }) {
   const [odds, setOdds] = useState({})
@@ -117,9 +120,13 @@ export default function OddsPanel({ raceId }) {
               <div key={i} className="skeleton" style={{ height: 32 }} />
             ))}
           </div>
+        ) : JS_ONLY_TABS.includes(activeTab) ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>
+            取得不可（リアルタイムデータ非対応）
+          </div>
         ) : (
           <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>
-            オッズデータなし（発走前は取得できない場合があります）
+            オッズデータなし
           </div>
         )}
       </div>

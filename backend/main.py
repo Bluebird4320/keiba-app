@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scraper.netkeiba_scraper import (
     get_race_list_by_date,
     get_race_detail,
+    get_race_results,
     get_horse_past_races,
     get_jockey_info,
     get_odds,
@@ -52,8 +53,8 @@ async def get_races(
     if date:
         dates = [date]
     else:
-        today, tomorrow = get_today_and_tomorrow()
-        dates = [today, tomorrow]
+        yesterday, today, tomorrow = get_today_and_tomorrow()
+        dates = [yesterday, today, tomorrow]
 
     all_data = {}
     for d in dates:
@@ -96,6 +97,15 @@ async def get_race(race_id: str):
 
     race["horses"] = await asyncio.gather(*[enrich_with_sem(h) for h in race["horses"]])
     return race
+
+
+@app.get("/api/race/{race_id}/results")
+async def get_race_results_api(race_id: str):
+    """完了済みレースの着順・払戻金を取得"""
+    results = await get_race_results(race_id)
+    if not results:
+        raise HTTPException(status_code=404, detail="結果が取得できませんでした（未出走または存在しないレース）")
+    return results
 
 
 @app.get("/api/race/{race_id}/odds")

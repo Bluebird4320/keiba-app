@@ -105,6 +105,7 @@ def _parse_keibalab_race_list(date_str: str) -> list:
     text  = soup.get_text(separator="\n", strip=True)
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     race_info_map = {}
+    baba_map      = {}  # venue_code → {"turf": "良", "dirt": "稍重"}
     current_vc    = None
 
     i = 0
@@ -140,6 +141,17 @@ def _parse_keibalab_race_list(date_str: str) -> list:
             race_info_map[key] = {"start_time": start_time, "race_name": race_name, "conditions": conditions}
             i += 1
             continue
+
+        # 馬場情報の検出: "芝：良", "ダ：稍重" など
+        turf_m = re.search(r"芝[：:]\s*(良|稍重|重|不良)", line)
+        dirt_m = re.search(r"ダ(?:ー?ト?)?[：:]\s*(良|稍重|重|不良)", line)
+        if (turf_m or dirt_m) and current_vc:
+            if current_vc not in baba_map:
+                baba_map[current_vc] = {}
+            if turf_m:
+                baba_map[current_vc]["turf"] = turf_m.group(1)
+            if dirt_m:
+                baba_map[current_vc]["dirt"] = dirt_m.group(1)
         i += 1
 
     for r in races:
@@ -151,6 +163,16 @@ def _parse_keibalab_race_list(date_str: str) -> list:
             r["race_name"] = info["race_name"]
         if info.get("conditions"):
             r["conditions"] = info["conditions"]
+        # surface from conditions
+        conds = r.get("conditions", "")
+        r["surface"] = "芝" if "芝" in conds else ("ダート" if "ダ" in conds else ("障害" if "障" in conds else ""))
+        # track_condition from baba_map
+        baba = baba_map.get(r["venue_code"], {})
+        r["track_condition"] = (
+            baba.get("turf", "") if r["surface"] == "芝"
+            else baba.get("dirt", "") if r["surface"] == "ダート"
+            else ""
+        )
 
     logger.info(f"  {date_str}: {len(races)}レース取得")
     return races
@@ -288,20 +310,51 @@ def _parse_mega_table(mega_table, num_horses: int) -> dict:
             date_m    = re.search(r"(\d{1,2}/\d{1,2})", kai_info)
             race_date = date_m.group(1) if date_m else ""
 
-            # 着順: 着差が0.0なら1着
-            rank = ""
+            # 着順: kai_infoの末尾数字 → 着差0.0なら1着で上書き
+            rank_from_kai = re.search(r"(\d+)$", kai_info)
+            rank = rank_from_kai.group(1) if rank_from_kai else ""
             diff_m = re.search(r"\(([\d\.]+)\)", result_info)
             if diff_m and diff_m.group(1) == "0.0":
                 rank = "1"
 
+            # 距離: "芝16" → "1600m", "ダ14" → "1400m"
+            dist_m = re.search(r"[芝ダ障](\d{2,3})", kai_info)
+            if dist_m:
+                d = int(dist_m.group(1))
+                distance = f"{d * 100}m" if d <= 40 else f"{d}m"
+            else:
+                distance = ""
+
+            # 天候: "晴良4" → "晴"
+            weather_m = re.search(r"(晴|曇|雨|小雨|雪)", kai_info)
+            weather = weather_m.group(1) if weather_m else ""
+
+            # surface: "芝16" → "芝", "ダ14" → "ダート"
+            surf_m = re.search(r"([芝ダ障])\d{2,3}", kai_info)
+            SURF_MAP = {"芝": "芝", "ダ": "ダート", "障": "障害"}
+            surface = SURF_MAP.get(surf_m.group(1), "") if surf_m else ""
+
+            # track_condition: "晴良" → "良", "晴稍" → "稍重"
+            TRACK_MAP = {"良": "良", "稍": "稍重", "重": "重", "不": "不良"}
+            cond_m = re.search(r"(?:晴|曇|雨|小雨|雪)(良|稍|重|不)", kai_info)
+            track_condition = TRACK_MAP.get(cond_m.group(1), "") if cond_m else ""
+
+            # 騎手名: "ルメール55.0" → "ルメール"
+            jockey_past = re.sub(r"[\d.]+$", "", jockey_info).strip()
+
             horse_data.append({
-                "date":      race_date,
-                "venue":     venue_str,
-                "race_name": race_name,
-                "popular":   popular,
-                "time":      finish_time,
-                "rank":      rank,
-                "kai_raw":   kai_info,
+                "date":            race_date,
+                "venue":           venue_str,
+                "race_name":       race_name,
+                "popular":         popular,
+                "time":            finish_time,
+                "rank":            rank,
+                "distance":        distance,
+                "surface":         surface,
+                "weather":         weather,
+                "track_condition": track_condition,
+                "jockey":          jockey_past,
+                "kai_raw":         kai_info,
             })
             j += 8  # 1馬分は8行
             continue
@@ -320,11 +373,11 @@ def _parse_mega_table(mega_table, num_horses: int) -> dict:
 # 出走馬取得（全情報）
 # =============================================
 
-def scrape_race_horses(race_id: str) -> list:
+def scrape_race_horses(race_id: str) -> tuple:
     url  = f"{KEIBALAB}/db/race/{race_id}/"
     soup = _fetch(url)
     if not soup:
-        return []
+        return [], "", ""
 
     # 馬名リスト（aタグ順: 左→右 = 低馬番→高馬番）
     horse_names, horse_ids, seen_names = [], [], []
@@ -386,14 +439,18 @@ def scrape_race_horses(race_id: str) -> list:
         past_races = []
         for past in stats.get("past_races", {}).get(i, []):
             past_races.append({
-                "date":      past.get("date", ""),
-                "venue":     past.get("venue", ""),
-                "race_name": past.get("race_name", ""),
-                "rank":      past.get("rank", ""),
-                "popular":   past.get("popular", ""),
-                "time":      past.get("time", ""),
-                "result_raw": past.get("result_raw", ""),
-                "kai_raw":   past.get("kai_raw", ""),
+                "date":            past.get("date", ""),
+                "venue":           past.get("venue", ""),
+                "race_name":       past.get("race_name", ""),
+                "rank":            past.get("rank", ""),
+                "popular":         past.get("popular", ""),
+                "time":            past.get("time", ""),
+                "distance":        past.get("distance", ""),
+                "surface":         past.get("surface", ""),
+                "weather":         past.get("weather", ""),
+                "track_condition": past.get("track_condition", ""),
+                "jockey":          past.get("jockey", ""),
+                "kai_raw":         past.get("kai_raw", ""),
             })
 
         horses.append({
@@ -415,13 +472,106 @@ def scrape_race_horses(race_id: str) -> list:
 
     # horse_noの昇順（1番→16番）にソート
     horses.sort(key=lambda h: int(h["horse_no"]) if h["horse_no"].isdigit() else 99)
+
+    # レース面・馬場状態をページから抽出
+    surface_page = ""
+    track_cond_page = ""
+    for line in [l.strip() for l in soup.get_text(separator="\n").split("\n") if l.strip()]:
+        if not surface_page:
+            sm = re.search(r"([芝ダ障])\d{3,4}m", line)
+            if sm:
+                surface_page = {"芝": "芝", "ダ": "ダート", "障": "障害"}.get(sm.group(1), "")
+        if not track_cond_page:
+            turf_b = re.search(r"芝[：:]\s*(良|稍重|重|不良)", line)
+            dirt_b = re.search(r"ダ(?:ー?ト?)?[：:]\s*(良|稍重|重|不良)", line)
+            if turf_b and (not surface_page or surface_page == "芝"):
+                track_cond_page = turf_b.group(1)
+            elif dirt_b and (not surface_page or surface_page == "ダート"):
+                track_cond_page = dirt_b.group(1)
+
     logger.info(f"  {race_id}: {len(horses)}頭取得（過去走{len(horses[0]['past_races']) if horses else 0}走分）")
-    return horses
+    return horses, surface_page, track_cond_page
 
 
 # =============================================
 # 公開 API
 # =============================================
+
+def scrape_race_results(race_id: str) -> Optional[dict]:
+    """完了済みレースの着順・払戻金を取得"""
+    url  = f"{KEIBALAB}/db/race/{race_id}/"
+    soup = _fetch(url)
+    if not soup:
+        return None
+
+    result_table = soup.select_one("table.resulttable")
+    if not result_table:
+        return None  # 未出走レース
+
+    # 着順
+    rankings = []
+    for row in result_table.select("tr")[1:]:
+        tds = row.select("td")
+        if len(tds) < 10:
+            continue
+        trainer_raw = tds[13].get_text(strip=True) if len(tds) > 13 else ""
+        rankings.append({
+            "rank":           tds[0].get_text(strip=True),
+            "bracket":        tds[1].get_text(strip=True),
+            "horse_no":       tds[2].get_text(strip=True),
+            "horse_name":     tds[3].get_text(strip=True),
+            "age_sex":        tds[4].get_text(strip=True),
+            "burden_weight":  tds[5].get_text(strip=True),
+            "jockey":         tds[6].get_text(strip=True),
+            "popular":        tds[7].get_text(strip=True),
+            "win_odds":       tds[8].get_text(strip=True),
+            "time":           tds[9].get_text(strip=True),
+            "margin":         tds[10].get_text(strip=True) if len(tds) > 10 else "",
+            "pass_order":     tds[11].get_text(strip=True) if len(tds) > 11 else "",
+            "last3f":         tds[12].get_text(strip=True) if len(tds) > 12 else "",
+            "trainer":        re.sub(r"^\[.\]", "", trainer_raw),
+            "horse_weight":   tds[14].get_text(strip=True) if len(tds) > 14 else "",
+        })
+
+    # 払戻金
+    BET_MAP = {
+        "単勝": "win", "複勝": "place", "枠連": "bracket_quinella",
+        "馬連": "quinella", "馬単": "exacta", "ワイド": "wide",
+        "3連複": "trio", "3連単": "trifecta",
+    }
+    payouts = {}
+    db_tables = soup.find_all("table", class_="DbTable")
+    if len(db_tables) >= 2:
+        for row in db_tables[1].find_all("tr"):
+            tds = row.find_all("td")
+            if len(tds) < 6:
+                continue
+            for bet_td, combo_td, amount_td in [(tds[0], tds[1], tds[2]), (tds[3], tds[4], tds[5])]:
+                key = BET_MAP.get(bet_td.get_text(strip=True))
+                if not key:
+                    continue
+                combos  = combo_td.get_text(separator="\n", strip=True).split("\n")
+                amounts = amount_td.get_text(separator="\n", strip=True).split("\n")
+                payouts[key] = [
+                    {"combination": c, "amount": a}
+                    for c, a in zip(combos, amounts) if c and a
+                ]
+
+    # レース面・馬場状態（結果ページから）
+    surface_r = ""
+    for line in [l.strip() for l in soup.get_text(separator="\n").split("\n") if l.strip()]:
+        sm = re.search(r"([芝ダ障])\d{3,4}m", line)
+        if sm:
+            surface_r = {"芝": "芝", "ダ": "ダート", "障": "障害"}.get(sm.group(1), "")
+            break
+
+    logger.info(f"  results {race_id}: {len(rankings)}頭, 払戻{len(payouts)}式")
+    return {"race_id": race_id, "surface": surface_r, "rankings": rankings, "payouts": payouts}
+
+
+async def get_race_results(race_id: str) -> Optional[dict]:
+    return scrape_race_results(race_id)
+
 
 async def get_race_list_by_date(date_str: str) -> list:
     return _parse_keibalab_race_list(date_str)
@@ -429,7 +579,7 @@ async def get_race_list_by_date(date_str: str) -> list:
 
 async def get_race_detail(race_id: str) -> Optional[dict]:
     if len(race_id) == 12:
-        horses = scrape_race_horses(race_id)
+        horses, surface_page, track_cond_page = scrape_race_horses(race_id)
         if horses:
             venue_code = race_id[8:10]
             race_no    = int(race_id[10:12])
@@ -440,7 +590,8 @@ async def get_race_detail(race_id: str) -> Optional[dict]:
                 "race_conditions": "",
                 "race_grade":      f"{venue_name}競馬場 第{race_no}レース",
                 "venue_name":      venue_name,
-                "surface":         "",
+                "surface":         surface_page,
+                "track_condition": track_cond_page,
                 "distance":        0,
                 "horses":          horses,
             }
@@ -529,29 +680,80 @@ async def get_jockey_info(jockey_id: str) -> dict:
     return {"所属":random.choice(["栗東","美浦"])}
 
 
+def scrape_odds(race_id: str) -> dict:
+    """keibalab odds.html から単勝・複勝・枠連を取得（馬連以降はJS描画のため取得不可）"""
+    url = f"{KEIBALAB}/db/race/{race_id}/odds.html"
+    soup = _fetch(url)
+    if not soup:
+        return {}
+
+    result = {}
+
+    # 単勝・複勝: id='oddsTanTable'
+    tan_table = soup.find("table", id="oddsTanTable") or soup.select_one("table.oddsTanTable")
+    if tan_table:
+        win_list = []
+        place_list = []
+        for row in tan_table.select("tr"):
+            cols = row.select("td")
+            if len(cols) < 7:
+                continue
+            horse_no = cols[1].get_text(strip=True)
+            win_odds  = cols[3].get_text(strip=True)
+            place_min = cols[4].get_text(strip=True)
+            place_max = cols[6].get_text(strip=True)
+            if not horse_no.isdigit():
+                continue
+            if win_odds:
+                win_list.append({"combination": horse_no, "odds": win_odds})
+            if place_min:
+                place_str = place_min if place_min == place_max else f"{place_min}-{place_max}"
+                place_list.append({"combination": horse_no, "odds": place_str})
+        result["win"]   = win_list
+        result["place"] = place_list
+
+    # 枠連: class='oddsTables' の最初のテーブル
+    bq_list = []
+    for tbl in soup.select("table.oddsTables"):
+        header_row = tbl.select_one("tr")
+        if not header_row:
+            continue
+        headers = [th.get_text(strip=True) for th in header_row.select("th, td")]
+        rows = tbl.select("tr")[1:]
+        for row in rows:
+            cells = row.select("td, th")
+            if not cells:
+                continue
+            row_bracket = cells[0].get_text(strip=True)
+            if not row_bracket.isdigit():
+                continue
+            for j, cell in enumerate(cells[1:], start=1):
+                if j >= len(headers):
+                    break
+                col_bracket = headers[j]
+                if not col_bracket.isdigit():
+                    continue
+                odds_val = cell.get_text(strip=True)
+                if not odds_val or odds_val in ("-", "---", "－", "×", ""):
+                    continue
+                b1 = min(int(row_bracket), int(col_bracket))
+                b2 = max(int(row_bracket), int(col_bracket))
+                if b1 != b2:
+                    bq_list.append({"combination": f"{b1}-{b2}", "odds": odds_val})
+        if bq_list:
+            break
+
+    if bq_list:
+        result["bracket_quinella"] = bq_list
+
+    return result
+
+
 async def get_odds(race_id: str) -> dict:
-    import random
-    num    = random.randint(10,16)
-    horses = [str(i) for i in range(1,num+1)]
-    def o(i):
-        b=[1.5,3.2,5.5,8.8,13.0,19.0,28.0,40.0,58.0,80.0,110.0,150.0,200.0,280.0,380.0,500.0]
-        return str(round(b[min(i,len(b)-1)]*1.05,1))
-    win   =[{"combination":h,"odds":o(i)} for i,h in enumerate(horses)]
-    place =[{"combination":h,"odds":str(round(float(o(i))*0.3,1))} for i,h in enumerate(horses)]
-    quin  =[{"combination":f"{horses[i]}-{horses[j]}",
-             "odds":str(round(float(o(i))*float(o(j))*0.4,1))}
-            for i in range(len(horses)) for j in range(i+1,min(i+6,len(horses)))]
-    wide  =[{"combination":f"{horses[i]}-{horses[j]}",
-             "odds":str(round(float(o(i))*float(o(j))*0.2,1))}
-            for i in range(len(horses)) for j in range(i+1,min(i+6,len(horses)))]
-    trio  =[{"combination":f"{horses[i]}-{horses[j]}-{horses[k]}",
-             "odds":str(round(float(o(i))*float(o(j))*float(o(k))*0.3,1))}
-            for i in range(min(5,len(horses))) for j in range(i+1,min(6,len(horses)))
-            for k in range(j+1,min(7,len(horses)))]
-    return {"win":win,"place":place,"quinella":quin[:30],
-            "wide":wide[:30],"trio":trio[:35],"exacta":[],"trifecta":[]}
+    return scrape_odds(race_id)
 
 
 def get_today_and_tomorrow() -> tuple:
     today = datetime.now()
-    return today.strftime("%Y%m%d"), (today+timedelta(days=1)).strftime("%Y%m%d")
+    yesterday = today - timedelta(days=1)
+    return yesterday.strftime("%Y%m%d"), today.strftime("%Y%m%d"), (today+timedelta(days=1)).strftime("%Y%m%d")
