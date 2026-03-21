@@ -169,7 +169,7 @@ def _parse_mega_table(mega_table, num_horses: int) -> dict:
         "bracket_nos": [], "horse_nos": [], "sex_ages": [],
         "odds": [], "populars": [], "weights": [],
         "jockeys": [], "trainers": [],
-        "past_races": {i: [] for i in range(num_horses)},  # 馬インデックス→過去走リスト
+        "past_races": {i: [] for i in range(20)},  # 馬インデックス→過去走リスト
     }
 
     rows = mega_table.select("tr")
