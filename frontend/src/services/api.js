@@ -1,7 +1,18 @@
 import axios from 'axios'
 
+// ブラウザのhostに基づいて動的にAPIのURLを決定
+// Mac: localhost:5173 → localhost:8000
+// スマホ: 192.168.1.12:5173 → 192.168.1.12:8000
+const getApiUrl = () => {
+  const hostname = window.location.hostname
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8000'
+  }
+  return `http://${hostname}:8000`
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: getApiUrl(),
   timeout: 30000,
 })
 
