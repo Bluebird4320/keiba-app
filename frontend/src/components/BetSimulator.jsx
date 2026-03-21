@@ -105,7 +105,9 @@ export default function BetSimulator({ horses = [], oddsData = {}, raceName = ''
 
   const handleDeleteBet = (id) => setSavedBets(prev => prev.filter(b => b.id !== id))
 
+  const UNAVAILABLE_TYPES = ['quinella', 'exacta', 'wide', 'trio', 'trifecta']
   const syntheticOdds = result?.bet_type === 'win' ? calcSyntheticOdds(result.combinations) : null
+  const syntheticUnavailable = result && UNAVAILABLE_TYPES.includes(result.bet_type)
 
   const calcPayout = (combo, type, betAmount) => {
     if (type === 'win' && oddsData?.win) {
@@ -380,6 +382,11 @@ export default function BetSimulator({ horses = [], oddsData = {}, raceName = ''
                     <span>
                       <span style={{ color: 'var(--text-muted)' }}>合成オッズ: </span>
                       <strong style={{ color: 'var(--green-bright)' }}>{syntheticOdds}倍</strong>
+                    </span>
+                  )}
+                  {syntheticUnavailable && (
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      合成オッズ: オッズ取得不可のため計算できません
                     </span>
                   )}
                 </div>

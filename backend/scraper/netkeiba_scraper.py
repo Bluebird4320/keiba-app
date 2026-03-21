@@ -795,6 +795,11 @@ def scrape_odds(race_id: str) -> dict:
     if bq_list:
         result["bracket_quinella"] = bq_list
 
+    # 馬連以降はJS描画のためサーバーサイドで取得不可
+    _unavailable = {"unavailable": True, "reason": "リアルタイムデータ非対応"}
+    for key in ["quinella", "exacta", "wide", "trio", "trifecta"]:
+        result[key] = _unavailable
+
     return result
 
 
