@@ -237,7 +237,7 @@ async def get_ai_prediction(race_info: dict) -> Optional[dict]:
     """Gemini APIを使って競馬予想を取得（DB強化版）"""
     try:
         setup_gemini()
-        model = genai.GenerativeModel("gemini-2.5-flash")  # 精度重視でflash使用
+        model = genai.GenerativeModel("gemini-2.5-flash")  # thinking model / token budget要大
 
         # race_infoにsurface/distanceがなければ条件文字列から抽出
         if not race_info.get("surface") or not race_info.get("distance"):
@@ -257,9 +257,9 @@ async def get_ai_prediction(race_info: dict) -> Optional[dict]:
         response = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
-                temperature=0.4,   # 低めにして一貫性重視
-                max_output_tokens=2048,
-            )
+                temperature=0.4,
+                max_output_tokens=24000,  # thinking+出力合計 / 2.5-flashはthinkingがmax_output_tokensを消費
+            ),
         )
 
         text = response.text.strip()
