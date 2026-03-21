@@ -127,6 +127,7 @@ export default function BetSimulator({ horses = [], oddsData = {} }) {
             return (
               <button
                 key={h.horse_no}
+                className="bet-horse-btn"
                 onClick={() => toggleHorse(h.horse_no)}
                 style={{
                   padding: '5px 12px', borderRadius: 8, cursor: 'pointer',

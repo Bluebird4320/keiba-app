@@ -73,7 +73,7 @@ export default function RaceListPage() {
   )
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
+    <div className="page-container">
       {/* ページタイトル */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--gold)', marginBottom: 6 }}>
@@ -84,7 +84,7 @@ export default function RaceListPage() {
 
       {/* 日付タブ */}
       {dates.length > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        <div className="date-tabs" style={{ gap: 8, marginBottom: 24 }}>
           {dates.map((d, i) => (
             <button
               key={d}

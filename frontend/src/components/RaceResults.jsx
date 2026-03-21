@@ -61,7 +61,7 @@ export default function RaceResults({ raceId }) {
           {data.surface && <span className="badge badge-green" style={{ fontSize: 10, marginLeft: 4 }}>{data.surface}</span>}
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll-wrap" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)' }}>

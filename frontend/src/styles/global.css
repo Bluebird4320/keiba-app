@@ -149,3 +149,83 @@ body {
   animation: shimmer 1.5s infinite;
   border-radius: 6px;
 }
+
+/* =============================================
+   モバイル対応（スマホ: max-width 768px）
+   ============================================= */
+
+/* ページコンテナ（JSXで className="page-container" を付与） */
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 16px 12px;
+  }
+
+  /* カードのhoverエフェクト無効（タッチデバイス） */
+  .card:hover {
+    border-color: var(--border);
+    background: var(--bg-card);
+  }
+
+  /* テーブルを横スクロール可能に */
+  .table-scroll-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-scroll-wrap table {
+    min-width: 560px;
+  }
+
+  /* バッジのフォントサイズ */
+  .badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  /* ボタンのタップターゲット拡大（44px 最小） */
+  .btn {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  /* セクションタイトル縮小 */
+  .section-title {
+    font-size: 16px;
+  }
+
+  /* 日付タブをフル幅に（.date-tabs をJSXで付与） */
+  .date-tabs {
+    display: flex;
+    width: 100%;
+    gap: 4px;
+  }
+  .date-tabs > button {
+    flex: 1;
+    min-height: 44px;
+    font-size: 12px;
+    padding: 8px 4px;
+  }
+
+  /* レースタブ（RaceDetailPage） */
+  .race-tabs > button {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  /* 買い目シミュレータ 馬ボタン（.bet-horse-btn をJSXで付与） */
+  .bet-horse-btn {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  /* レースヘッダーのタイトル縮小 */
+  .race-title {
+    font-size: 20px !important;
+  }
+}

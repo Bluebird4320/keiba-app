@@ -50,7 +50,7 @@ export default function RaceDetailPage() {
   ]
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 24px' }}>
+    <div className="page-container">
       {/* 戻るボタン */}
       <button
         onClick={() => navigate(-1)}
@@ -92,7 +92,7 @@ export default function RaceDetailPage() {
       )}
 
       {/* タブ */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+      <div className="race-tabs" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0, overflowX: 'auto' }}>
         {tabs.map(({ key, label }) => (
           <button
             key={key}
