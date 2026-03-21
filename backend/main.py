@@ -80,11 +80,9 @@ async def get_race(race_id: str):
     if not race:
         raise HTTPException(status_code=404, detail="レース情報が取得できませんでした")
 
-    # past_racesが実データ取得済みの場合はスキップ、騎手情報のみ取得
+    # megamoriTableから取得済みの過去走データを使用、騎手情報のみ追加
+    # ※ get_horse_past_races はモックのため呼ばない（初出走馬は正しく0走）
     async def enrich_horse(horse: dict) -> dict:
-        if len(horse.get("past_races", [])) == 0:
-            if horse.get("horse_id"):
-                horse["past_races"] = await get_horse_past_races(horse["horse_id"])
         if horse.get("jockey_id"):
             horse["jockey_info"] = await get_jockey_info(horse["jockey_id"])
         return horse
