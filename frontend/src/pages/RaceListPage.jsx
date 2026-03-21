@@ -31,6 +31,7 @@ export default function RaceListPage() {
   const handleDateChange = (d) => {
     if (d === activeDate) return
     setActiveDate(d)
+    localStorage.setItem('lastDate', d)
     if (venuesByDate[d] !== undefined) return  // キャッシュあり → 即切替
     // 未キャッシュ → 個別取得
     setTabLoading(true)

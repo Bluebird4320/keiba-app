@@ -21,6 +21,7 @@ export default function RaceDetailPage() {
   })
 
   useEffect(() => {
+    localStorage.setItem('lastRaceId', raceId)
     fetchRaceDetail(raceId)
       .then(setRace)
       .catch(() => setError('レース詳細の取得に失敗しました'))
@@ -136,7 +137,7 @@ export default function RaceDetailPage() {
           )}
 
           {activeTab === 'bet' && (
-            <BetSimulator horses={race.horses || []} />
+            <BetSimulator horses={race.horses || []} raceName={race.race_name || ''} />
           )}
 
           {activeTab === 'ai' && (
